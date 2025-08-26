@@ -35,6 +35,9 @@ const App: React.FC = () => {
   const energyChartRef = useRef<Chart | null>(null);
   const qualityChartRef = useRef<Chart | null>(null);
   const statusChartRef = useRef<Chart | null>(null);
+  
+  // Active section state for navbar highlighting
+  const [activeSection, setActiveSection] = useState<string>('home');
 
   // Apply theme to the root element and persist
   useEffect(() => {
@@ -55,6 +58,70 @@ const App: React.FC = () => {
   // Base API URL. Uses environment variable for production deployment
   // Falls back to localhost for development
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
+  // Intersection observer for scroll-based navigation highlighting
+  useEffect(() => {
+    const sections = ['home', 'problem', 'solution', 'dashboard', 'model', 'team'];
+    const observerOptions = {
+      rootMargin: '-10% 0px -50% 0px', // More lenient trigger zones
+      threshold: [0.1, 0.3, 0.5], // Multiple thresholds for better detection
+    };
+
+    let currentSection = 'home';
+
+    const observer = new IntersectionObserver((entries) => {
+      // Sort entries by intersection ratio (descending) to prioritize most visible section
+      const sortedEntries = entries
+        .filter(entry => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+      if (sortedEntries.length > 0) {
+        const mostVisible = sortedEntries[0];
+        if (mostVisible.target.id !== currentSection) {
+          currentSection = mostVisible.target.id;
+          setActiveSection(currentSection);
+        }
+      }
+    }, observerOptions);
+
+    // Observe all sections
+    sections.forEach((sectionId) => {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        observer.observe(element);
+      }
+    });
+
+    // Fallback scroll listener for more precise detection
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY + window.innerHeight * 0.3; // 30% from top
+      
+      const sectionElements = sections.map(id => ({
+        id,
+        element: document.getElementById(id),
+        top: document.getElementById(id)?.offsetTop || 0,
+        bottom: (document.getElementById(id)?.offsetTop || 0) + (document.getElementById(id)?.offsetHeight || 0)
+      })).filter(section => section.element);
+
+      // Find the section that contains the scroll position
+      const activeSection = sectionElements.find(section => 
+        scrollPosition >= section.top && scrollPosition <= section.bottom
+      );
+
+      if (activeSection && activeSection.id !== currentSection) {
+        currentSection = activeSection.id;
+        setActiveSection(currentSection);
+      }
+    };
+
+    // Add scroll listener as backup
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   // Fetch data once after the component mounts
   useEffect(() => {
@@ -199,7 +266,7 @@ const App: React.FC = () => {
       {/* Navigation bar */}
       <nav className="navbar navbar-expand-lg glass-nav fixed-top">
         <div className="container-fluid">
-          <a className="navbar-brand" href="#home">AquaSync</a>
+          <a className={`navbar-brand ${activeSection === 'home' ? 'active' : ''}`} href="#home">AquaSync</a>
           <button
             className="navbar-toggler"
             type="button"
@@ -214,19 +281,19 @@ const App: React.FC = () => {
           <div className="collapse navbar-collapse" id="navbarNav">
             <ul className="navbar-nav ms-auto align-items-lg-center">
               <li className="nav-item">
-                <a className="nav-link" href="#problem">Problem</a>
+                <a className={`nav-link ${activeSection === 'problem' ? 'active' : ''}`} href="#problem">Problem</a>
               </li>
               <li className="nav-item">
-                <a className="nav-link" href="#solution">Solution</a>
+                <a className={`nav-link ${activeSection === 'solution' ? 'active' : ''}`} href="#solution">Solution</a>
               </li>
               <li className="nav-item">
-                <a className="nav-link" href="#dashboard">Dashboard</a>
+                <a className={`nav-link ${activeSection === 'dashboard' ? 'active' : ''}`} href="#dashboard">Dashboard</a>
               </li>
               <li className="nav-item">
-                <a className="nav-link" href="#model">Model</a>
+                <a className={`nav-link ${activeSection === 'model' ? 'active' : ''}`} href="#model">Model</a>
               </li>
               <li className="nav-item">
-                <a className="nav-link" href="#team">Team</a>
+                <a className={`nav-link ${activeSection === 'team' ? 'active' : ''}`} href="#team">Team</a>
               </li>
               <li className="nav-item ms-lg-3 mt-2 mt-lg-0">
                 <a href={mailtoHref} className="btn btn-primary btn-sm btn-raise btn-glow">
