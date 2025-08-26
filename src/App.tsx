@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import Chart from 'chart.js/auto';
 
 /**
  * React component for the AquaSync MVP.
@@ -22,23 +23,14 @@ const App: React.FC = () => {
   const qualityRef = useRef<HTMLCanvasElement>(null);
   const statusRef = useRef<HTMLCanvasElement>(null);
 
-  // Chart instance refs for cleanup
-  const energyChartRef = useRef<any>(null);
-  const qualityChartRef = useRef<any>(null);
-  const statusChartRef = useRef<any>(null);
-
-  // Theme state
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
+  // Chart.js instance refs to support cleanup between renders (StrictMode)
+  const energyChartRef = useRef<Chart | null>(null);
+  const qualityChartRef = useRef<Chart | null>(null);
+  const statusChartRef = useRef<Chart | null>(null);
 
   // Base API URL. Uses environment variable for production deployment
   // Falls back to localhost for development
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-
-  // Apply theme on mount and when changed
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
 
   // Fetch data once after the component mounts
   useEffect(() => {
@@ -64,14 +56,15 @@ const App: React.FC = () => {
       .catch((err) => console.error('Failed to fetch status data', err));
   }, []);
 
-  // Lazy render charts when canvases enter viewport
+  // Draw the energy consumption chart when data is available
   useEffect(() => {
-    const createEnergy = async () => {
-      if (!energy || !energyRef.current) return;
+    if (energy && energyRef.current) {
       const ctx = energyRef.current.getContext('2d');
       if (!ctx) return;
-      const { Chart } = await import('chart.js/auto');
-      if (energyChartRef.current) energyChartRef.current.destroy();
+      // Destroy any existing chart instance bound to this canvas
+      if (energyChartRef.current) {
+        energyChartRef.current.destroy();
+      }
       energyChartRef.current = new Chart(ctx, {
         type: 'line',
         data: {
@@ -90,17 +83,29 @@ const App: React.FC = () => {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          scales: { y: { beginAtZero: true } },
+          scales: {
+            y: { beginAtZero: true },
+          },
         },
       });
-    };
 
-    const createQuality = async () => {
-      if (!quality || !qualityRef.current) return;
+      return () => {
+        if (energyChartRef.current) {
+          energyChartRef.current.destroy();
+          energyChartRef.current = null;
+        }
+      };
+    }
+  }, [energy]);
+
+  // Draw the quality chart when data is available
+  useEffect(() => {
+    if (quality && qualityRef.current) {
       const ctx = qualityRef.current.getContext('2d');
       if (!ctx) return;
-      const { Chart } = await import('chart.js/auto');
-      if (qualityChartRef.current) qualityChartRef.current.destroy();
+      if (qualityChartRef.current) {
+        qualityChartRef.current.destroy();
+      }
       qualityChartRef.current = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -116,57 +121,54 @@ const App: React.FC = () => {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          scales: { y: { beginAtZero: true } },
+          scales: {
+            y: { beginAtZero: true },
+          },
         },
       });
-    };
 
-    const createStatus = async () => {
-      if (!status || !statusRef.current) return;
+      return () => {
+        if (qualityChartRef.current) {
+          qualityChartRef.current.destroy();
+          qualityChartRef.current = null;
+        }
+      };
+    }
+  }, [quality]);
+
+  // Draw the status distribution chart when data is available
+  useEffect(() => {
+    if (status && statusRef.current) {
       const ctx = statusRef.current.getContext('2d');
       if (!ctx) return;
-      const { Chart } = await import('chart.js/auto');
-      if (statusChartRef.current) statusChartRef.current.destroy();
+      if (statusChartRef.current) {
+        statusChartRef.current.destroy();
+      }
       statusChartRef.current = new Chart(ctx, {
         type: 'doughnut',
         data: {
           labels: status.labels,
           datasets: [
-            { data: status.data, backgroundColor: ['#ffc107', '#fd7e14', '#dc3545'] },
+            {
+              data: status.data,
+              backgroundColor: ['#ffc107', '#fd7e14', '#dc3545'],
+            },
           ],
         },
-        options: { responsive: true, maintainAspectRatio: false },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+        },
       });
-    };
 
-    const observers: IntersectionObserver[] = [];
-    const makeObserver = (el: HTMLCanvasElement | null, cb: () => void) => {
-      if (!el) return;
-      const obs = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            cb();
-            obs.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.15 });
-      obs.observe(el);
-      observers.push(obs);
-    };
-
-    makeObserver(energyRef.current, createEnergy);
-    makeObserver(qualityRef.current, createQuality);
-    makeObserver(statusRef.current, createStatus);
-
-    return () => {
-      observers.forEach((o) => o.disconnect());
-      energyChartRef.current?.destroy?.();
-      qualityChartRef.current?.destroy?.();
-      statusChartRef.current?.destroy?.();
-    };
-  }, [energy, quality, status]);
-
-  const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'));
+      return () => {
+        if (statusChartRef.current) {
+          statusChartRef.current.destroy();
+          statusChartRef.current = null;
+        }
+      };
+    }
+  }, [status]);
 
   return (
     <div>
@@ -201,16 +203,6 @@ const App: React.FC = () => {
               </li>
               <li className="nav-item">
                 <a className="nav-link" href="#team">Team</a>
-              </li>
-              <li className="nav-item d-flex align-items-center ms-2">
-                <button className="btn btn-sm btn-outline-light" onClick={toggleTheme} aria-label="Toggle dark mode">
-                  {theme === 'dark' ? <i className="bi bi-sun"></i> : <i className="bi bi-moon"></i>}
-                </button>
-              </li>
-              <li className="nav-item d-none d-md-block ms-2">
-                <button className="btn btn-warning" data-bs-toggle="offcanvas" data-bs-target="#demoOffcanvas">
-                  Book a Demo
-                </button>
               </li>
             </ul>
           </div>
@@ -401,36 +393,6 @@ const App: React.FC = () => {
           <p className="mb-0">Interested in partnering or investing? Email us at info@aquasync.example.com</p>
         </div>
       </footer>
-
-      {/* Sticky CTA button (mobile) */}
-      <button className="sticky-cta btn btn-warning d-md-none" data-bs-toggle="offcanvas" data-bs-target="#demoOffcanvas">
-        <i className="bi bi-telephone me-1"></i> Demo
-      </button>
-
-      {/* Offcanvas contact form */}
-      <div className="offcanvas offcanvas-end" tabIndex={-1} id="demoOffcanvas" aria-labelledby="demoOffcanvasLabel">
-        <div className="offcanvas-header">
-          <h5 className="offcanvas-title" id="demoOffcanvasLabel">Book a Demo</h5>
-          <button type="button" className="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-        </div>
-        <div className="offcanvas-body">
-          <form onSubmit={(e) => { e.preventDefault(); alert('Thanks! We\'ll be in touch.'); }}>
-            <div className="mb-3">
-              <label className="form-label">Name</label>
-              <input type="text" className="form-control" required />
-            </div>
-            <div className="mb-3">
-              <label className="form-label">Email</label>
-              <input type="email" className="form-control" required />
-            </div>
-            <div className="mb-3">
-              <label className="form-label">Message</label>
-              <textarea className="form-control" rows={3} placeholder="Tell us about your plant"></textarea>
-            </div>
-            <button type="submit" className="btn btn-primary w-100">Send</button>
-          </form>
-        </div>
-      </div>
     </div>
   );
 };
