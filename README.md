@@ -55,3 +55,4 @@ This application is configured for deployment on Vercel with automatic builds fr
 - Chart.js
 - Bootstrap 5
 - CSS3
+
