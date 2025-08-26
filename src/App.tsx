@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Chart from 'chart.js/auto';
 
 /**
@@ -13,6 +13,14 @@ import Chart from 'chart.js/auto';
 const App: React.FC = () => {
   // State for descriptive information
   const [info, setInfo] = useState<any>(null);
+  // Theme state
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light';
+    const stored = localStorage.getItem('theme');
+    if (stored === 'light' || stored === 'dark') return stored;
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return prefersDark ? 'dark' : 'light';
+  });
   // State for chart data
   const [energy, setEnergy] = useState<{ labels: string[]; data: number[]; unit: string } | null>(null);
   const [quality, setQuality] = useState<{ labels: string[]; data: number[]; unit: string } | null>(null);
@@ -27,6 +35,22 @@ const App: React.FC = () => {
   const energyChartRef = useRef<Chart | null>(null);
   const qualityChartRef = useRef<Chart | null>(null);
   const statusChartRef = useRef<Chart | null>(null);
+
+  // Apply theme to the root element and persist
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+
+  const mailtoHref = useMemo(() => {
+    const subject = encodeURIComponent('Request a Demo');
+    const body = encodeURIComponent(
+      'Hi AquaSync team,\n\nI\'d like to request a demo. Here are some details:\n- Name:\n- Organization:\n- Use case:\n\nThanks!'
+    );
+    return `mailto:info@aquasync.example.com?subject=${subject}&body=${body}`;
+  }, []);
 
   // Base API URL. Uses environment variable for production deployment
   // Falls back to localhost for development
@@ -173,7 +197,7 @@ const App: React.FC = () => {
   return (
     <div>
       {/* Navigation bar */}
-      <nav className="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+      <nav className="navbar navbar-expand-lg glass-nav fixed-top">
         <div className="container-fluid">
           <a className="navbar-brand" href="#home">AquaSync</a>
           <button
@@ -188,7 +212,7 @@ const App: React.FC = () => {
             <span className="navbar-toggler-icon"></span>
           </button>
           <div className="collapse navbar-collapse" id="navbarNav">
-            <ul className="navbar-nav ms-auto">
+            <ul className="navbar-nav ms-auto align-items-lg-center">
               <li className="nav-item">
                 <a className="nav-link" href="#problem">Problem</a>
               </li>
@@ -204,6 +228,17 @@ const App: React.FC = () => {
               <li className="nav-item">
                 <a className="nav-link" href="#team">Team</a>
               </li>
+              <li className="nav-item ms-lg-3 mt-2 mt-lg-0">
+                <a href={mailtoHref} className="btn btn-primary btn-sm btn-raise btn-glow">
+                  <i className="bi bi-envelope-fill me-1"></i>
+                  Request Demo
+                </a>
+              </li>
+              <li className="nav-item ms-2 mt-2 mt-lg-0">
+                <button className="btn btn-outline-secondary btn-sm btn-raise" onClick={toggleTheme} aria-label="Toggle theme">
+                  {theme === 'dark' ? <i className="bi bi-sun"></i> : <i className="bi bi-moon"></i>}
+                </button>
+              </li>
             </ul>
           </div>
         </div>
@@ -212,7 +247,7 @@ const App: React.FC = () => {
       {/* Hero section */}
       <header id="home" className="hero d-flex align-items-center text-white">
         <div className="container text-center">
-          <h1 className="display-4 fw-bold">Securing India’s Water Future</h1>
+          <h1 className="display-4 fw-bold gradient-text">Securing India’s Water Future</h1>
           <p className="lead mb-4">AI‑native OS for decentralised water treatment</p>
           <div className="cta-group d-flex gap-3 justify-content-center">
             <a href="#dashboard" className="btn btn-light btn-lg">
@@ -222,6 +257,10 @@ const App: React.FC = () => {
             <a href="#solution" className="btn btn-outline-light btn-lg">
               <i className="bi bi-cpu me-2"></i>
               See How It Works
+            </a>
+            <a href={mailtoHref} className="btn btn-primary btn-lg btn-raise btn-glow">
+              <i className="bi bi-envelope-fill me-2"></i>
+              Request a Demo
             </a>
           </div>
         </div>
@@ -253,7 +292,7 @@ const App: React.FC = () => {
       </section>
 
       {/* Problem section */}
-      <section id="problem" className="py-5 bg-light">
+      <section id="problem" className={`py-5 ${theme === 'dark' ? '' : 'bg-light'}`}>
         <div className="container">
           <h2 className="mb-4">The Problem</h2>
           {info ? (
@@ -311,7 +350,7 @@ const App: React.FC = () => {
       </section>
 
       {/* Dashboard section */}
-      <section id="dashboard" className="py-5 bg-light">
+      <section id="dashboard" className={`py-5 ${theme === 'dark' ? '' : 'bg-light'}`}>
         <div className="container">
           <h2 className="mb-4">Live Dashboard (Dummy Data)</h2>
           <div className="row g-4">
@@ -362,7 +401,7 @@ const App: React.FC = () => {
       </section>
 
       {/* Team section */}
-      <section id="team" className="py-5 bg-light">
+      <section id="team" className={`py-5 ${theme === 'dark' ? '' : 'bg-light'}`}>
         <div className="container">
           <h2 className="mb-4">The Team</h2>
           <div className="row">
